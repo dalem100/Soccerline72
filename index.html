@@ -43,8 +43,8 @@
       <div class="toolbar">
         <button id="addPlayer" class="primary">Ajouter une joueuse</button>
         <button id="loadExample">Charger un exemple</button>
-        <label class="file-button">Importer CSV<input id="csvInput" type="file" accept=".csv,text/csv" hidden></label>
-        <button id="exportCsv">Exporter CSV</button>
+        <label class="file-button">Importer CSV de l’iPhone<input id="csvInput" type="file" accept=".csv,text/csv,text/comma-separated-values,application/vnd.ms-excel" hidden></label>
+        <button id="exportCsv">Exporter l’effectif CSV</button>
         <button id="clearRoster" class="danger-ghost">Effacer</button>
       </div>
 
@@ -78,7 +78,10 @@
           <p class="step">Pendant le match</p>
           <h2 id="match-title">Alignement et ajustements</h2>
         </div>
-        <button id="printPlan">Imprimer / PDF</button>
+        <div class="match-actions">
+          <span id="proposalNumber" class="count-pill">Proposition 1</span>
+          <button id="printPlan">Imprimer / PDF</button>
+        </div>
       </div>
 
       <div id="noPlan" class="empty-state">
@@ -88,6 +91,18 @@
       </div>
 
       <div id="planArea" hidden>
+        <div class="proposal-card no-print">
+          <div>
+            <p class="step">Autre proposition</p>
+            <h3>Régénérer un alignement différent</h3>
+          </div>
+          <div class="proposal-controls">
+            <label>Modifier à partir de<select id="regenerateFromBlock"></select></label>
+            <button id="regeneratePlan" class="primary">Générer une autre proposition</button>
+          </div>
+          <p class="hint">Avant le match, choisissez le bloc 1. En cours de match, choisissez le prochain bloc : les blocs antérieurs seront conservés.</p>
+        </div>
+
         <div class="injury-card no-print">
           <div>
             <p class="step">Réajustement immédiat</p>
@@ -114,7 +129,10 @@
           <p class="step">Contrôle</p>
           <h2 id="bilan-title">Temps de jeu et séquence</h2>
         </div>
-        <button id="exportJson">Sauvegarder</button>
+        <div class="summary-actions">
+          <button id="exportLineupCsv">Exporter l’alignement CSV</button>
+          <button id="exportJson">Sauvegarder</button>
+        </div>
       </div>
       <div id="summaryEmpty" class="empty-state"><p>Le bilan apparaîtra après la génération.</p></div>
       <div id="summaryArea" hidden>

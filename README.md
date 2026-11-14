@@ -1,10 +1,10 @@
-# Alignements Soccer 7 — application iPhone gratuite
+# Alignements Soccer 7 — application iPhone gratuite (version 1.1)
 
 Cette version transforme le script Python en application web progressive (PWA) installable sur l’écran d’accueil d’un iPhone. Elle ne nécessite ni abonnement, ni serveur applicatif, ni compte Apple Developer. Après la première ouverture, elle fonctionne hors connexion.
 
 ## Fonctions principales
 
-- Effectif saisi directement sur iPhone ou importé depuis un CSV.
+- Effectif saisi directement sur iPhone ou importé depuis un CSV choisi dans l’app Fichiers, iCloud Drive ou un fournisseur de fichiers disponible sur l’iPhone.
 - Positions : GK, DG, DD, MG, MC, MD, AP et ALL.
 - Notes de rapidité et de technique sur 5.
 - Trois périodes, deux blocs par période.
@@ -14,7 +14,9 @@ Cette version transforme le script Python en application web progressive (PWA) i
 - Mode strict (positions autorisées seulement) ou souple (hors-position possible avec pénalité).
 - Blessure en cours de match : les blocs déjà joués sont conservés et le reste est recalculé.
 - Si moins de sept joueuses restent disponibles, les postes impossibles à remplir sont affichés « Poste vacant » au lieu de bloquer l’application.
+- Régénération d’une proposition réellement différente, pour tout le match ou seulement à partir d’un bloc choisi.
 - Tableau de temps de jeu, changements entre blocs, impression ou création d’un PDF depuis Safari.
+- Export CSV de l’effectif et de l’alignement par la feuille de partage iOS, avec repli automatique vers Téléchargements si le partage de fichiers n’est pas disponible.
 - Sauvegarde automatique locale sur l’appareil et export CSV/JSON.
 
 ## Installation gratuite sur iPhone
@@ -51,6 +53,32 @@ L’application apparaîtra comme une application indépendante. Aucune installa
 6. Les blocs antérieurs au bloc choisi restent inchangés. Le bloc choisi et les blocs suivants sont réoptimisés.
 7. Pour une blessure entre deux blocs, choisir le prochain bloc. Pour une blessure pendant un bloc nécessitant un remplacement immédiat, choisir le bloc courant.
 8. Le bouton **Réintégrer** remet une joueuse disponible et recalcule à partir du bloc indiqué dans le sélecteur.
+
+## Demander une autre proposition
+
+1. Dans l’onglet **Match**, ouvrir la carte **Régénérer un alignement différent**.
+2. Avant le match, choisir **Bloc 1** pour remplacer l’ensemble de la proposition.
+3. En cours de match, choisir le prochain bloc à jouer afin de conserver tous les blocs antérieurs.
+4. Toucher **Générer une autre proposition**.
+
+Le moteur essaie jusqu’à 80 variantes et compare la gardienne et les six postes de chaque bloc modifiable. Il n’accepte la nouvelle proposition que si elle est réellement différente. Si les contraintes n’admettent qu’une seule solution, l’application l’indique sans remplacer le plan actuel.
+
+## Importer et exporter un CSV sur iPhone
+
+### Importer
+
+1. Dans **Effectif**, toucher **Importer CSV de l’iPhone**.
+2. Choisir le fichier dans **Sur mon iPhone**, **iCloud Drive** ou un autre emplacement offert par l’app Fichiers.
+3. Confirmer le remplacement de l’effectif courant, s’il y en a un.
+
+L’import accepte les fichiers à colonnes séparées par une virgule, un point-virgule ou une tabulation. Les fichiers UTF-8 avec marque BOM sont acceptés, ce qui permet de réimporter directement un fichier exporté par l’application.
+
+### Exporter
+
+- **Exporter l’effectif CSV** produit un fichier réimportable contenant les joueuses, positions, notes, présences et indicateurs de gardienne.
+- **Exporter l’alignement CSV**, dans l’onglet **Bilan**, produit le temps au champ, la cible, l’écart et les rôles des six blocs.
+- Sur les versions compatibles de Safari, la feuille de partage iOS s’ouvre : choisir **Enregistrer dans Fichiers**, AirDrop, Mail ou une autre destination.
+- Si le partage de fichiers n’est pas offert, le fichier est placé dans les téléchargements de Safari.
 
 ## Import CSV
 
@@ -101,7 +129,7 @@ npm test
 npm run check
 ```
 
-Les tests couvrent : génération complète, unicité des joueuses par bloc, respect des positions strictes, absence de banc consécutif dans le cas nominal, recalcul après blessure, remplacement d’une gardienne blessée, jeu à effectif réduit et détection d’une couverture stricte impossible.
+Les tests couvrent : génération complète, unicité des joueuses par bloc, respect des positions strictes, absence de banc consécutif dans le cas nominal, recalcul après blessure, remplacement d’une gardienne blessée, jeu à effectif réduit, détection d’une couverture stricte impossible et régénération d’une proposition distincte avec conservation des blocs antérieurs.
 
 ## Fichiers
 

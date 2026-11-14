@@ -46,7 +46,7 @@ h2, h3, p { margin-top: 0; }
 .count-pill { white-space: nowrap; padding: .35rem .65rem; border-radius: 999px; color: var(--green-900); background: var(--green-100); font-weight: 800; font-size: .82rem; }
 .toolbar { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .75rem; }
 .file-button { display: inline-flex; align-items: center; }
-.help-card, .settings-card, .injury-card, .empty-state { margin: .8rem 0; border: 1px solid var(--line); border-radius: 16px; padding: 1rem; background: var(--paper); box-shadow: var(--shadow); }
+.help-card, .settings-card, .proposal-card, .injury-card, .empty-state { margin: .8rem 0; border: 1px solid var(--line); border-radius: 16px; padding: 1rem; background: var(--paper); box-shadow: var(--shadow); }
 .help-card summary { font-weight: 800; cursor: pointer; }
 .help-card p { margin: .7rem 0 0; color: var(--muted); }
 .roster-list { display: grid; gap: .55rem; }
@@ -68,6 +68,12 @@ input, select { width: 100%; min-height: 44px; border: 1px solid #bdc9c3; border
 .check-row input { width: 22px; min-height: 22px; accent-color: var(--green-700); }
 .injury-card { border-left: 5px solid var(--red); }
 .injury-card h3 { margin-bottom: 0; }
+.proposal-card { border-left: 5px solid var(--green-500); }
+.proposal-card h3 { margin-bottom: 0; }
+.proposal-controls { display: grid; grid-template-columns: minmax(180px, .55fr) minmax(230px, 1fr); align-items: end; gap: .7rem; margin: .9rem 0 .5rem; }
+.proposal-controls button { width: 100%; }
+.summary-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .45rem; }
+.match-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: .45rem; }
 .unavailable-list { display: flex; flex-wrap: wrap; gap: .45rem; }
 .unavailable-chip { display: inline-flex; gap: .45rem; align-items: center; padding: .35rem .45rem .35rem .65rem; border-radius: 999px; color: #761b1b; background: var(--red-soft); font-size: .82rem; font-weight: 750; }
 .unavailable-chip button { min-height: 30px; padding: .2rem .5rem; border-color: #e8b4b0; font-size: .75rem; }
@@ -132,7 +138,7 @@ code { font-size: .82em; }
   .app-header .eyebrow { display: none; }
   .section-heading { align-items: flex-start; }
   .toolbar > * { flex: 1 1 calc(50% - .5rem); }
-  .keeper-grid, .rating-grid, .injury-controls { grid-template-columns: 1fr; }
+  .keeper-grid, .rating-grid, .injury-controls, .proposal-controls { grid-template-columns: 1fr; }
   .injury-controls button { width: 100%; }
   .player-card { align-items: flex-start; }
   .player-card-actions { flex-direction: column; }

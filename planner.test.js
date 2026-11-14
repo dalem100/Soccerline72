@@ -67,4 +67,30 @@ function assertValidBlock(block, players, strict = true) {
   assert.deepEqual(P.parsePositions("Gardienne; avant-centre; MD"), ["GK", "AP", "MD"]);
 })();
 
-console.log("OK — 5 scénarios de test réussis.");
+(function testDifferentProposalWithPreservedBlocks() {
+  const players = roster();
+  const initial = P.generatePlan({ players, periodGoalkeepers: ["1", "2", "3"], strict: true, seed: 42 });
+  const alternative = P.generateAlternativePlan({
+    players,
+    periodGoalkeepers: ["1", "2", "3"],
+    strict: true,
+    startBlock: 3,
+    preservedBlocks: initial.blocks
+  }, initial, { maxAttempts: 80, seedBase: 1000 });
+  assert.ok(alternative, "Une autre proposition devrait exister");
+  assert.deepEqual(alternative.blocks.slice(0, 2), initial.blocks.slice(0, 2), "Les blocs antérieurs doivent rester inchangés");
+  assert.notEqual(P.planSignature(alternative, 3), P.planSignature(initial, 3), "La nouvelle proposition doit être réellement différente");
+})();
+
+(function testCsvRoundTripFormats() {
+  const commaCsv = '\uFEFFNom,Positions,Rapidite\r\nAna,"GK;DG",4\r\n';
+  const commaRows = P.parseCsv(commaCsv);
+  assert.deepEqual(commaRows[0], ["Nom", "Positions", "Rapidite"]);
+  assert.deepEqual(commaRows[1], ["Ana", "GK;DG", "4"]);
+  const semicolonCsv = 'Nom;Positions;Rapidite\r\nAna;"GK;DG";4\r\n';
+  assert.deepEqual(P.parseCsv(semicolonCsv)[1], ["Ana", "GK;DG", "4"]);
+  assert.equal(P.csvEscape("GK;DG"), "GK;DG");
+  assert.equal(P.csvEscape("Nom, prénom"), '"Nom, prénom"');
+})();
+
+console.log("OK — 7 scénarios de test réussis.");

@@ -8,7 +8,7 @@
   const $$ = selector => [...document.querySelectorAll(selector)];
 
   function defaultState() {
-    return { players: [], periodGoalkeepers: [null, null, null], strict: true, plan: null };
+    return { players: [], periodGoalkeepers: [null, null, null], strict: true, plan: null, proposalNumber: 0 };
   }
 
   function loadState() {
@@ -147,6 +147,7 @@
     const index = state.players.findIndex(p => p.id === existingId);
     if (index >= 0) state.players[index] = player; else state.players.push(player);
     state.plan = null;
+    state.proposalNumber = 0;
     $("#playerDialog").close();
     renderAll();
   }
@@ -157,6 +158,7 @@
     state.players = state.players.filter(p => p.id !== id);
     state.periodGoalkeepers = state.periodGoalkeepers.map(g => g === id ? null : g);
     state.plan = null;
+    state.proposalNumber = 0;
     renderAll();
   }
 
@@ -172,6 +174,7 @@
     state.players = rows.map((r, i) => P.sanitizePlayer({ id: `ex_${i + 1}`, name: r[0], positions: r[1], speed: r[2], technique: r[3], goalkeeper: r[4], present: true }));
     state.periodGoalkeepers = ["ex_1", "ex_2", "ex_3"];
     state.plan = null;
+    state.proposalNumber = 0;
     renderAll();
     showStatus("Effectif d’exemple chargé.");
   }
@@ -188,13 +191,40 @@
         preservedBlocks,
         seed: Date.now()
       });
+      state.proposalNumber = (state.proposalNumber || 0) + 1;
       renderAll();
       switchTab("match");
-      showStatus(startBlock > 1 ? `Alignement recalculé à partir du bloc ${startBlock}.` : "Alignement généré.");
+      showStatus(startBlock > 1 ? `Proposition ${state.proposalNumber} recalculée à partir du bloc ${startBlock}.` : `Proposition ${state.proposalNumber} générée.`);
       return true;
     } catch (error) {
       showStatus(`${error.message}\nConseil : vérifiez la couverture de chaque poste ou désactivez « Positions strictes ».`, true);
       return false;
+    }
+  }
+
+  function regenerateAlternative() {
+    if (!state.plan) return;
+    const startBlock = Number($("#regenerateFromBlock").value) || 1;
+    const currentPlan = state.plan;
+    try {
+      const candidate = P.generateAlternativePlan({
+        players: state.players,
+        periodGoalkeepers: state.periodGoalkeepers,
+        strict: state.strict,
+        startBlock,
+        preservedBlocks: currentPlan.blocks
+      }, currentPlan, { maxAttempts: 80, seedBase: Date.now() });
+      if (!candidate) {
+        showStatus("Aucune autre proposition distincte n’a été trouvée avec ces disponibilités et ces positions. Essayez le mode souple ou modifiez les préférences.", true);
+        return;
+      }
+      state.plan = candidate;
+      state.proposalNumber = (state.proposalNumber || 1) + 1;
+      renderAll();
+      switchTab("match");
+      showStatus(`Proposition ${state.proposalNumber} générée; elle diffère à partir du bloc ${startBlock}.`);
+    } catch (error) {
+      showStatus(`${error.message}\nImpossible de produire une autre proposition avec les contraintes actuelles.`, true);
     }
   }
 
@@ -203,6 +233,7 @@
     $("#noPlan").hidden = hasPlan;
     $("#planArea").hidden = !hasPlan;
     if (!hasPlan) return;
+    $("#proposalNumber").textContent = `Proposition ${state.proposalNumber || 1}`;
     const blocks = $("#blocks");
     const jumps = $("#blockJump");
     blocks.textContent = "";
@@ -252,6 +283,18 @@
     warningBox.textContent = "";
     state.plan.warnings.forEach(text => { const item = document.createElement("div"); item.className = "warning"; item.textContent = text; warningBox.appendChild(item); });
     renderInjuryControls();
+    renderRegenerationControls();
+  }
+
+  function fillBlockSelect(select, fallback = 1) {
+    const current = Number(select.value) || fallback;
+    select.textContent = "";
+    for (let i = 1; i <= 6; i += 1) select.add(new Option(`Bloc ${i}`, String(i)));
+    select.value = String(Math.max(1, Math.min(6, current)));
+  }
+
+  function renderRegenerationControls() {
+    fillBlockSelect($("#regenerateFromBlock"), 1);
   }
 
   function renderInjuryControls() {
@@ -261,10 +304,7 @@
     state.players.filter(p => p.present && p.unavailableFrom > 1).forEach(p => select.add(new Option(p.name, p.id)));
     if ([...select.options].some(o => o.value === previous)) select.value = previous;
     const blockSelect = $("#injuryBlock");
-    const currentBlock = Number(blockSelect.value) || 1;
-    blockSelect.textContent = "";
-    for (let i = 1; i <= 6; i += 1) blockSelect.add(new Option(`Bloc ${i}`, String(i)));
-    blockSelect.value = String(currentBlock);
+    fillBlockSelect(blockSelect, 1);
     const list = $("#unavailableList");
     list.textContent = "";
     state.players.filter(p => p.present && p.unavailableFrom <= 6).forEach(p => {
@@ -357,22 +397,7 @@
   }
 
   function parseCsv(text) {
-    const firstLine = text.split(/\r?\n/)[0] || "";
-    const delimiter = firstLine.includes("\t") ? "\t" : ",";
-    const rows = [];
-    let row = [], cell = "", quoted = false;
-    for (let i = 0; i < text.length; i += 1) {
-      const char = text[i], next = text[i + 1];
-      if (char === '"' && quoted && next === '"') { cell += '"'; i += 1; }
-      else if (char === '"') quoted = !quoted;
-      else if (char === delimiter && !quoted) { row.push(cell); cell = ""; }
-      else if ((char === "\n" || char === "\r") && !quoted) {
-        if (char === "\r" && next === "\n") i += 1;
-        row.push(cell); if (row.some(v => v.trim())) rows.push(row); row = []; cell = "";
-      } else cell += char;
-    }
-    row.push(cell); if (row.some(v => v.trim())) rows.push(row);
-    return rows;
+    return P.parseCsv(text);
   }
 
   function truthy(value, defaultValue = false) {
@@ -383,9 +408,15 @@
 
   async function importCsv(file) {
     try {
-      const rows = parseCsv(await file.text());
+      const text = typeof file.text === "function" ? await file.text() : await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("Impossible de lire ce fichier sur l’iPhone."));
+        reader.readAsText(file);
+      });
+      const rows = parseCsv(text);
       if (rows.length < 2) throw new Error("Le CSV ne contient aucune joueuse.");
-      const headers = rows[0].map(h => P.normalizeText(h).replace(/\s+/g, "_"));
+      const headers = rows[0].map(h => P.normalizeText(String(h).replace(/^\uFEFF/, "")).replace(/\s+/g, "_"));
       const find = (...names) => names.map(n => headers.indexOf(n)).find(i => i >= 0) ?? -1;
       const columns = {
         name: find("nom", "name"), positions: find("positions", "positions_preferees", "position"),
@@ -406,17 +437,17 @@
       state.players = players;
       state.periodGoalkeepers = [null, null, null];
       state.plan = null;
+      state.proposalNumber = 0;
       renderAll();
       showStatus(`${players.length} joueuse(s) importée(s).`);
     } catch (error) { showStatus(error.message, true); }
   }
 
   function csvEscape(value) {
-    const text = String(value ?? "");
-    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    return P.csvEscape(value);
   }
 
-  function download(filename, content, type) {
+  function downloadFallback(filename, content, type) {
     const blob = new Blob([content], { type });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -424,14 +455,41 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  function exportCsv() {
-    const lines = [["Nom", "Positions", "Rapidite", "Technique", "Presente", "Gardienne"]];
-    state.players.forEach(p => lines.push([p.name, p.positions.join(";"), p.speed, p.technique, p.present ? "Oui" : "Non", p.goalkeeper ? "Oui" : "Non"]));
-    download("effectif_soccer7.csv", "\ufeff" + lines.map(r => r.map(csvEscape).join(",")).join("\r\n"), "text/csv;charset=utf-8");
+  async function shareOrDownload(filename, content, type) {
+    try {
+      const file = new File([content], filename, { type, lastModified: Date.now() });
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: filename });
+        showStatus(`${filename} prêt dans la feuille de partage de l’iPhone.`);
+        return;
+      }
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+    downloadFallback(filename, content, type);
+    showStatus(`${filename} a été téléchargé. Ouvrez Téléchargements ou l’app Fichiers.`);
   }
 
-  function exportJson() {
-    download(`sauvegarde_soccer7_${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(state, null, 2), "application/json");
+  async function exportCsv() {
+    const lines = [["Nom", "Positions", "Rapidite", "Technique", "Presente", "Gardienne"]];
+    state.players.forEach(p => lines.push([p.name, p.positions.join(";"), p.speed, p.technique, p.present ? "Oui" : "Non", p.goalkeeper ? "Oui" : "Non"]));
+    await shareOrDownload("effectif_soccer7.csv", "\ufeff" + lines.map(r => r.map(csvEscape).join(",")).join("\r\n"), "text/csv;charset=utf-8");
+  }
+
+  async function exportLineupCsv() {
+    if (!state.plan) return showStatus("Générez d’abord un alignement.", true);
+    const lines = [["Nom", "Champ", "Cible", "Ecart", "Bloc 1", "Bloc 2", "Bloc 3", "Bloc 4", "Bloc 5", "Bloc 6"]];
+    state.players.filter(p => p.present).forEach(player => {
+      const field = state.plan.fieldCounts[player.id] || 0;
+      const target = state.plan.fieldTargets[player.id] || 0;
+      lines.push([player.name, field, target, field - target, ...state.plan.blocks.map(block => P.roleFor(block, player.id))]);
+    });
+    const date = new Date().toISOString().slice(0, 10);
+    await shareOrDownload(`alignement_soccer7_${date}.csv`, "\ufeff" + lines.map(r => r.map(csvEscape).join(",")).join("\r\n"), "text/csv;charset=utf-8");
+  }
+
+  async function exportJson() {
+    await shareOrDownload(`sauvegarde_soccer7_${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(state, null, 2), "application/json");
   }
 
   function bindEvents() {
@@ -445,12 +503,14 @@
     $("#clearRoster").addEventListener("click", () => {
       if (!state.players.length || confirm("Effacer tout l’effectif et l’alignement?")) { Object.assign(state, defaultState()); renderAll(); }
     });
-    $("#strictPositions").addEventListener("change", e => { state.strict = e.target.checked; state.plan = null; renderAll(); });
-    [1, 2, 3].forEach(i => $(`#keeper${i}`).addEventListener("change", e => { state.periodGoalkeepers[i - 1] = e.target.value || null; state.plan = null; renderAll(); }));
+    $("#strictPositions").addEventListener("change", e => { state.strict = e.target.checked; state.plan = null; state.proposalNumber = 0; renderAll(); });
+    [1, 2, 3].forEach(i => $(`#keeper${i}`).addEventListener("change", e => { state.periodGoalkeepers[i - 1] = e.target.value || null; state.plan = null; state.proposalNumber = 0; renderAll(); }));
     $("#generatePlan").addEventListener("click", () => generate());
+    $("#regeneratePlan").addEventListener("click", regenerateAlternative);
     $("#applyInjury").addEventListener("click", applyInjury);
     $("#printPlan").addEventListener("click", () => window.print());
     $("#exportCsv").addEventListener("click", exportCsv);
+    $("#exportLineupCsv").addEventListener("click", exportLineupCsv);
     $("#exportJson").addEventListener("click", exportJson);
     $("#csvInput").addEventListener("change", e => { if (e.target.files[0]) importCsv(e.target.files[0]); e.target.value = ""; });
     $("#installHelp").addEventListener("click", () => $("#installDialog").showModal());

@@ -42,6 +42,40 @@
     return [...new Set(String(value).split(/[;,/|]/).map(normalizePosition).filter(Boolean))];
   }
 
+  function parseCsv(value) {
+    const text = String(value ?? "").replace(/^\uFEFF/, "");
+    const firstLine = text.split(/\r?\n/)[0] || "";
+    const counts = { ",": 0, ";": 0, "\t": 0 };
+    let firstLineQuoted = false;
+    for (const char of firstLine) {
+      if (char === '"') firstLineQuoted = !firstLineQuoted;
+      else if (!firstLineQuoted && char in counts) counts[char] += 1;
+    }
+    const delimiter = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+    const rows = [];
+    let row = [], cell = "", quoted = false;
+    for (let i = 0; i < text.length; i += 1) {
+      const char = text[i], next = text[i + 1];
+      if (char === '"' && quoted && next === '"') { cell += '"'; i += 1; }
+      else if (char === '"') quoted = !quoted;
+      else if (char === delimiter && !quoted) { row.push(cell); cell = ""; }
+      else if ((char === "\n" || char === "\r") && !quoted) {
+        if (char === "\r" && next === "\n") i += 1;
+        row.push(cell);
+        if (row.some(item => item.trim())) rows.push(row);
+        row = []; cell = "";
+      } else cell += char;
+    }
+    row.push(cell);
+    if (row.some(item => item.trim())) rows.push(row);
+    return rows;
+  }
+
+  function csvEscape(value, delimiter = ",") {
+    const text = String(value ?? "");
+    return (text.includes(delimiter) || /["\r\n]/.test(text)) ? `"${text.replace(/"/g, '""')}"` : text;
+  }
+
   function clampRating(value) {
     const n = Number(value);
     return Number.isFinite(n) ? Math.max(1, Math.min(5, n)) : 3;
@@ -301,8 +335,33 @@
     return changes.sort((a, b) => a.name.localeCompare(b.name, "fr"));
   }
 
+  function planSignature(plan, startBlock = 1) {
+    if (!plan?.blocks) return "";
+    return plan.blocks
+      .filter(block => block.number >= startBlock)
+      .map(block => [
+        block.number,
+        block.goalkeeperId || "-",
+        ...POSITIONS.map(position => block.assignments?.[position] || "-")
+      ].join(":"))
+      .join("|");
+  }
+
+  function generateAlternativePlan(input, currentPlan, options = {}) {
+    const startBlock = Math.max(1, Math.min(6, Number(input.startBlock) || 1));
+    const currentSignature = planSignature(currentPlan, startBlock);
+    const maxAttempts = Math.max(1, Number(options.maxAttempts) || 60);
+    const seedBase = (Number(options.seedBase) || Date.now()) >>> 0;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const candidate = generatePlan({ ...input, seed: (seedBase + attempt * 7919) >>> 0 });
+      if (planSignature(candidate, startBlock) !== currentSignature) return candidate;
+    }
+    return null;
+  }
+
   return {
-    POSITIONS, POSITION_LABELS, normalizeText, normalizePosition, parsePositions,
-    sanitizePlayer, validateRoster, isAvailable, positionCost, generatePlan, roleFor, changesBetween
+    POSITIONS, POSITION_LABELS, normalizeText, normalizePosition, parsePositions, parseCsv, csvEscape,
+    sanitizePlayer, validateRoster, isAvailable, positionCost, generatePlan,
+    generateAlternativePlan, planSignature, roleFor, changesBetween
   };
 });
